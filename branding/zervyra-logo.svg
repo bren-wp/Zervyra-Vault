@@ -1,0 +1,19 @@
+<svg width="960" height="280" viewBox="0 0 960 280" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="g" x1="40" y1="28" x2="240" y2="244" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#8B7CFF"/>
+      <stop offset="1" stop-color="#5A48E8"/>
+    </linearGradient>
+    <filter id="shadow" x="0" y="0" width="300" height="300" filterUnits="userSpaceOnUse">
+      <feGaussianBlur stdDeviation="14"/>
+    </filter>
+  </defs>
+  <rect width="960" height="280" rx="36" fill="#0A0D13"/>
+  <path d="M140 24L226 56V125C226 185 194 226 140 252C86 226 54 185 54 125V56L140 24Z" fill="#6958EE" opacity="0.18" filter="url(#shadow)"/>
+  <path d="M140 28L218 57V123C218 177 190 215 140 240C90 215 62 177 62 123V57L140 28Z" fill="url(#g)"/>
+  <path d="M102 84H181V103L127 164H183V190H96V171L150 110H102V84Z" fill="white"/>
+  <circle cx="140" cy="218" r="5" fill="#32D7A0"/>
+  <text x="274" y="126" fill="#F7F9FD" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="76" font-weight="700" letter-spacing="4">ZERVYRA</text>
+  <text x="278" y="184" fill="#8794A8" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="30" font-weight="500" letter-spacing="2">VAULT</text>
+  <text x="278" y="224" fill="#68758A" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="18" font-weight="400">Tvoje tajne. Tvoja kontrola.</text>
+</svg>

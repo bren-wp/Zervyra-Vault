@@ -1,0 +1,78 @@
+//go:build windows
+
+package main
+
+import "syscall"
+
+var (
+	version       = "1.1.0-dev"
+	portableBuild = "false"
+
+	user32   = syscall.NewLazyDLL("user32.dll")
+	kernel32 = syscall.NewLazyDLL("kernel32.dll")
+	gdi32    = syscall.NewLazyDLL("gdi32.dll")
+	comdlg32 = syscall.NewLazyDLL("comdlg32.dll")
+	uxtheme  = syscall.NewLazyDLL("uxtheme.dll")
+	dwmapi   = syscall.NewLazyDLL("dwmapi.dll")
+
+	pCreateWindowEx   = user32.NewProc("CreateWindowExW")
+	pDefWindowProc    = user32.NewProc("DefWindowProcW")
+	pRegisterClassEx  = user32.NewProc("RegisterClassExW")
+	pShowWindow       = user32.NewProc("ShowWindow")
+	pUpdateWindow     = user32.NewProc("UpdateWindow")
+	pGetMessage       = user32.NewProc("GetMessageW")
+	pTranslateMessage = user32.NewProc("TranslateMessage")
+	pDispatchMessage  = user32.NewProc("DispatchMessageW")
+	pPostQuit         = user32.NewProc("PostQuitMessage")
+	pSendMessage      = user32.NewProc("SendMessageW")
+	pGetWindowText    = user32.NewProc("GetWindowTextW")
+	pGetWindowTextLen = user32.NewProc("GetWindowTextLengthW")
+	pSetWindowText    = user32.NewProc("SetWindowTextW")
+	pMessageBox       = user32.NewProc("MessageBoxW")
+	pSetTimer         = user32.NewProc("SetTimer")
+	pKillTimer        = user32.NewProc("KillTimer")
+	pMoveWindow       = user32.NewProc("MoveWindow")
+	pGetClientRect    = user32.NewProc("GetClientRect")
+	pEnableWindow     = user32.NewProc("EnableWindow")
+	pSetFocus         = user32.NewProc("SetFocus")
+	pInvalidateRect   = user32.NewProc("InvalidateRect")
+	pOpenClipboard    = user32.NewProc("OpenClipboard")
+	pEmptyClipboard   = user32.NewProc("EmptyClipboard")
+	pSetClipboardData = user32.NewProc("SetClipboardData")
+	pCloseClipboard   = user32.NewProc("CloseClipboard")
+	pGetClipboardSeq  = user32.NewProc("GetClipboardSequenceNumber")
+	pSetProcessDPI    = user32.NewProc("SetProcessDpiAwarenessContext")
+	pBeginPaint       = user32.NewProc("BeginPaint")
+	pEndPaint         = user32.NewProc("EndPaint")
+	pDrawText         = user32.NewProc("DrawTextW")
+	pFillRect         = user32.NewProc("FillRect")
+	pGetDlgCtrlID     = user32.NewProc("GetDlgCtrlID")
+	pGetParent        = user32.NewProc("GetParent")
+	pTrackMouseEvent  = user32.NewProc("TrackMouseEvent")
+	pSetCapture       = user32.NewProc("SetCapture")
+	pReleaseCapture   = user32.NewProc("ReleaseCapture")
+	pIsWindowEnabled  = user32.NewProc("IsWindowEnabled")
+	pLoadImage        = user32.NewProc("LoadImageW")
+	pDestroyIcon      = user32.NewProc("DestroyIcon")
+
+	pGlobalAlloc  = kernel32.NewProc("GlobalAlloc")
+	pGlobalLock   = kernel32.NewProc("GlobalLock")
+	pGlobalUnlock = kernel32.NewProc("GlobalUnlock")
+	pGlobalFree   = kernel32.NewProc("GlobalFree")
+	pLstrcpyW     = kernel32.NewProc("lstrcpyW")
+
+	pGetStockObject   = gdi32.NewProc("GetStockObject")
+	pCreateSolidBrush = gdi32.NewProc("CreateSolidBrush")
+	pDeleteObject     = gdi32.NewProc("DeleteObject")
+	pSelectObject     = gdi32.NewProc("SelectObject")
+	pSetTextColor     = gdi32.NewProc("SetTextColor")
+	pSetBkColor       = gdi32.NewProc("SetBkColor")
+	pSetBkMode        = gdi32.NewProc("SetBkMode")
+	pRoundRect        = gdi32.NewProc("RoundRect")
+	pCreateFont       = gdi32.NewProc("CreateFontW")
+
+	pGetOpenFileName = comdlg32.NewProc("GetOpenFileNameW")
+	pGetSaveFileName = comdlg32.NewProc("GetSaveFileNameW")
+	pSetWindowTheme  = uxtheme.NewProc("SetWindowTheme")
+	pDwmSetAttribute = dwmapi.NewProc("DwmSetWindowAttribute")
+)

@@ -1,0 +1,13 @@
+release/
+native/cmd/setup/Zervyra-Vault.exe
+native/cmd/setup/Zervyra-Vault-Uninstall.exe
+native/cmd/setup/Zervyra.ico
+*.bvault
+*.bvault.recovery
+*.bvault.bak*
+*.bvault.lock
+*.log
+
+*.prev*
+last-vault.txt
+.last-vault.tmp

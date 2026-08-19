@@ -1,0 +1,84 @@
+name: Zervyra Vault Windows Release
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-2025
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.x'
+          cache-dependency-path: native/go.mod
+
+      - name: Test, vet and build
+        shell: powershell
+        run: ./native/build_windows.ps1
+
+      - name: Verify PE artifacts and checksums
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $expected = Get-Content release/SHA256SUMS.txt
+          foreach ($line in $expected) {
+            if ($line -match '^([0-9a-f]{64})  (.+)$') {
+              $actual = (Get-FileHash (Join-Path 'release' $Matches[2]) -Algorithm SHA256).Hash.ToLowerInvariant()
+              if ($actual -ne $Matches[1]) { throw "Checksum mismatch: $($Matches[2])" }
+            }
+          }
+
+      - name: Package distributions
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $version = (Get-Content VERSION -Raw).Trim()
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Compress-Archive -Path release/* -DestinationPath "dist/Zervyra-Vault-$version-Windows-x64.zip" -Force
+          git archive --format=zip --output "dist/Zervyra-Vault-$version-source.zip" HEAD
+          New-Item -ItemType Directory -Force dist/full | Out-Null
+          Copy-Item "dist/Zervyra-Vault-$version-source.zip" dist/full/
+          Copy-Item "dist/Zervyra-Vault-$version-Windows-x64.zip" dist/full/
+          Copy-Item release/SHA256SUMS.txt dist/full/
+          Compress-Archive -Path dist/full/* -DestinationPath "dist/Zervyra-Vault-$version-FULL.zip" -Force
+          Remove-Item -Recurse -Force dist/full
+          Get-FileHash dist/*.zip -Algorithm SHA256 | ForEach-Object { "$($_.Hash.ToLowerInvariant())  $([IO.Path]::GetFileName($_.Path))" } | Set-Content -Encoding ASCII dist/SHA256SUMS.txt
+
+      - name: Upload GitHub Actions artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Zervyra-Vault-${{ github.sha }}
+          path: |
+            release/*
+            dist/*
+          if-no-files-found: error
+          compression-level: 0
+
+      - name: Publish GitHub Release
+        if: github.ref == 'refs/heads/main'
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $version = (Get-Content VERSION -Raw).Trim()
+          $tag = "v$version"
+          gh release view $tag --repo $env:GITHUB_REPOSITORY *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $tag release/* dist/* --clobber --repo $env:GITHUB_REPOSITORY
+          } else {
+            gh release create $tag release/* dist/* --target $env:GITHUB_SHA --title "Zervyra Vault $version" --notes "Automatski verificirani Windows x64 release za Zervyra Vault $version. Build uključuje testove, race-detector smoke test, go vet i SHA-256 provjeru artefakata." --repo $env:GITHUB_REPOSITORY
+          }
