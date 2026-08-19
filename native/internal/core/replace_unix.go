@@ -4,4 +4,6 @@ package core
 
 import "os"
 
-func atomicReplace(src, dst string) error { return os.Rename(src,dst) }
+func atomicReplace(src, dst string) error {
+	return os.Rename(src, dst)
+}

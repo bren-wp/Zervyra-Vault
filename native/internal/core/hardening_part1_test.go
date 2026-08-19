@@ -137,6 +137,8 @@ func TestLoadBestPrefersNewestValidRecovery(t *testing.T) {
 	if err := SaveAutosave(p, pw, v); err != nil {
 		t.Fatal(err)
 	}
+	// Simulate a crash/power loss after the write-ahead recovery was committed but
+	// before the newest main generation became durable.
 	if err := os.WriteFile(p, oldRaw, 0600); err != nil {
 		t.Fatal(err)
 	}
