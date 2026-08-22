@@ -58,7 +58,6 @@ func destroyWindowIcons() {
 	}
 	if smallIcon != 0 {
 		pDestroyIcon.Call(smallIcon)
-		bigIcon = 0
 		smallIcon = 0
 	}
 }
