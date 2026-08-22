@@ -1,4 +1,4 @@
-# Zervyra Vault 1.1.1
+# Zervyra
 
 **Tvoje tajne. Tvoja kontrola.**
 
