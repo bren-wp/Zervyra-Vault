@@ -66,10 +66,10 @@ func TestCreateNewPreservesVerifiedMainIfRecoveryCreationFails(t *testing.T) {
 
 	err := CreateNew(vaultPath, password, v)
 	if err == nil {
-		t.Fatal("expected recovery creation failure")
+		t.Fatal("expected recovery creation warning")
 	}
-	if !strings.Contains(err.Error(), "main vault was preserved") {
-		t.Fatalf("unexpected error: %v", err)
+	if !IsRecoveryCopyWarning(err) {
+		t.Fatalf("expected typed recovery warning, got: %T %v", err, err)
 	}
 
 	loaded, loadErr := Load(vaultPath, password)
