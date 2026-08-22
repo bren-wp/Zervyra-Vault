@@ -13,7 +13,11 @@ const (
 	KDFIterations            = 600000
 	MinKDFIterations         = 100000
 	MaxKDFIterations         = 2000000
-	MaxVaultFileSize         = 64 << 20
+	// Plaintext and on-disk envelope have different limits because Base64 expands
+	// encrypted data by roughly one third. Keeping them separate prevents a valid
+	// near-limit vault from being written successfully and then rejected on reopen.
+	MaxVaultPlaintextSize    = 64 << 20
+	MaxVaultFileSize         = 96 << 20
 	MaxEntries               = 100000
 	BackupCount              = 10
 	ImmediateSnapshotCount   = 3
@@ -77,7 +81,10 @@ type envelope struct {
 	Payload    string `json:"payload"`
 }
 
-type VaultLock struct{ path string }
+type VaultLock struct {
+	path  string
+	token string
+}
 
 func nowRFC3339() string { return time.Now().UTC().Format(time.RFC3339Nano) }
 
