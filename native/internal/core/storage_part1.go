@@ -216,18 +216,26 @@ func copyFile(src, dst string) error {
 		return err
 	}
 	defer in.Close()
-	tmp := dst + ".tmp"
-	out, err := os.OpenFile(tmp, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0600)
+
+	dir := filepath.Dir(dst)
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		return err
+	}
+	out, err := os.CreateTemp(dir, ".zervyra-copy-*.tmp")
 	if err != nil {
 		return err
 	}
+	tmp := out.Name()
 	ok := false
 	defer func() {
-		out.Close()
+		_ = out.Close()
 		if !ok {
-			os.Remove(tmp)
+			_ = os.Remove(tmp)
 		}
 	}()
+	if err := out.Chmod(0600); err != nil {
+		return err
+	}
 	if _, err := io.Copy(out, in); err != nil {
 		return err
 	}
@@ -244,19 +252,28 @@ func copyFile(src, dst string) error {
 	return nil
 }
 
-func readLockPID(lockPath string) int {
+func readLockValue(lockPath, key string) string {
 	b, err := os.ReadFile(lockPath)
 	if err != nil {
-		return 0
+		return ""
 	}
+	prefix := key + "="
 	for _, line := range strings.Split(string(b), "\n") {
-		if !strings.HasPrefix(line, "pid=") {
-			continue
+		if strings.HasPrefix(line, prefix) {
+			return strings.TrimSpace(strings.TrimPrefix(line, prefix))
 		}
-		pid, err := strconv.Atoi(strings.TrimSpace(strings.TrimPrefix(line, "pid=")))
-		if err == nil && pid > 0 {
-			return pid
-		}
+	}
+	return ""
+}
+
+func readLockPID(lockPath string) int {
+	pid, err := strconv.Atoi(readLockValue(lockPath, "pid"))
+	if err == nil && pid > 0 {
+		return pid
 	}
 	return 0
+}
+
+func readLockToken(lockPath string) string {
+	return readLockValue(lockPath, "token")
 }
