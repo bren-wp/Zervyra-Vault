@@ -8,51 +8,20 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"unicode"
 	"unsafe"
 )
 
-//go:embed assets/zervyra.ico.b64.part01
-var embeddedIconBase64Part01 string
-
-//go:embed assets/zervyra.ico.b64.part02
-var embeddedIconBase64Part02 string
-
-//go:embed assets/zervyra.ico.b64.part03
-var embeddedIconBase64Part03 string
-
-//go:embed assets/zervyra.ico.b64.part04
-var embeddedIconBase64Part04 string
-
-//go:embed assets/zervyra.ico.b64.part05
-var embeddedIconBase64Part05 string
-
-//go:embed assets/zervyra.ico.b64.part06
-var embeddedIconBase64Part06 string
-
-//go:embed assets/zervyra.ico.b64.part07
-var embeddedIconBase64Part07 string
+//go:embed assets/zervyra.ico.b64
+var embeddedIconBase64 string
 
 var bigIcon, smallIcon uintptr
 
-func normalizeEmbeddedBase64(s string) string {
-	return strings.Map(func(r rune) rune {
-		if r == '\uFEFF' || unicode.IsSpace(r) {
-			return -1
-		}
-		return r
-	}, s)
-}
-
 func installWindowIcon(h uintptr) {
-	embeddedIconBase64 := normalizeEmbeddedBase64(
-		embeddedIconBase64Part01 + embeddedIconBase64Part02 + embeddedIconBase64Part03 +
-			embeddedIconBase64Part04 + embeddedIconBase64Part05 + embeddedIconBase64Part06 + embeddedIconBase64Part07,
-	)
-	if h == 0 || len(embeddedIconBase64) == 0 {
+	iconBase64 := strings.TrimSpace(embeddedIconBase64)
+	if h == 0 || iconBase64 == "" {
 		return
 	}
-	embeddedIcon, err := base64.StdEncoding.DecodeString(embeddedIconBase64)
+	embeddedIcon, err := base64.StdEncoding.DecodeString(iconBase64)
 	if err != nil || len(embeddedIcon) < 6 {
 		logEvent("embedded icon decode failed: %v", err)
 		return
@@ -89,6 +58,7 @@ func destroyWindowIcons() {
 	}
 	if smallIcon != 0 {
 		pDestroyIcon.Call(smallIcon)
+		bigIcon = 0
 		smallIcon = 0
 	}
 }
