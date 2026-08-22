@@ -127,7 +127,7 @@ func encodeVault(password string, v Vault) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	if len(plain) > MaxVaultFileSize {
+	if len(plain) > MaxVaultPlaintextSize {
 		zeroBytes(plain)
 		return nil, errors.New("vault is too large")
 	}
@@ -162,6 +162,9 @@ func encodeVault(password string, v Vault) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	if len(raw)+1 > MaxVaultFileSize {
+		return nil, errors.New("encrypted vault envelope is too large")
+	}
 	return append(raw, '\n'), nil
 }
 
@@ -186,7 +189,7 @@ func decodeVault(raw []byte, password string) (Vault, error) {
 		return v, errors.New("vault nonce is invalid")
 	}
 	ct, err := base64.StdEncoding.DecodeString(e.Payload)
-	if err != nil || len(ct) < 16 || len(ct) > MaxVaultFileSize {
+	if err != nil || len(ct) < 16 || len(ct) > MaxVaultPlaintextSize+16 {
 		return v, errors.New("vault payload is invalid")
 	}
 	key := derive(password, salt, e.Iterations, 32)
@@ -204,7 +207,7 @@ func decodeVault(raw []byte, password string) (Vault, error) {
 		return v, errors.New("wrong master password or modified vault")
 	}
 	defer zeroBytes(plain)
-	if len(plain) > MaxVaultFileSize {
+	if len(plain) > MaxVaultPlaintextSize {
 		return v, errors.New("decrypted vault is too large")
 	}
 	if err := json.Unmarshal(plain, &v); err != nil {
