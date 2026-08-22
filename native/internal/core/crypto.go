@@ -17,6 +17,10 @@ import (
 // PBKDF2-HMAC-SHA256. Passwords longer than SHA-256's HMAC block size are
 // pre-hashed once. This is mathematically equivalent to HMAC's key handling and
 // avoids re-hashing a very long master password on every PBKDF2 iteration.
+//
+// The HMAC state and fixed-size U/T buffers are reused across iterations. This
+// keeps the exact PBKDF2 output and iteration count while avoiding hundreds of
+// thousands of hash objects and temporary allocations on every vault save.
 func derive(password string, salt []byte, iter, keyLen int) []byte {
 	rawKey := []byte(password)
 	defer zeroBytes(rawKey)
@@ -30,24 +34,29 @@ func derive(password string, salt []byte, iter, keyLen int) []byte {
 
 	hLen := sha256.Size
 	blocks := (keyLen + hLen - 1) / hLen
-	out := make([]byte, 0, blocks*hLen)
+	out := make([]byte, blocks*hLen)
 	for i := 1; i <= blocks; i++ {
 		mac := hmac.New(sha256.New, keyMaterial)
 		mac.Write(salt)
 		var ib [4]byte
 		binary.BigEndian.PutUint32(ib[:], uint32(i))
 		mac.Write(ib[:])
-		u := mac.Sum(nil)
-		t := append([]byte(nil), u...)
+
+		var u [sha256.Size]byte
+		var t [sha256.Size]byte
+		mac.Sum(u[:0])
+		copy(t[:], u[:])
 		for j := 1; j < iter; j++ {
-			mac = hmac.New(sha256.New, keyMaterial)
-			mac.Write(u)
-			u = mac.Sum(nil)
+			mac.Reset()
+			mac.Write(u[:])
+			mac.Sum(u[:0])
 			for k := range t {
 				t[k] ^= u[k]
 			}
 		}
-		out = append(out, t...)
+		copy(out[(i-1)*hLen:], t[:])
+		zeroBytes(u[:])
+		zeroBytes(t[:])
 	}
 	return out[:keyLen]
 }
