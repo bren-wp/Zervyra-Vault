@@ -16,7 +16,7 @@ func writeAtomicFile(path string, raw []byte) error {
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return err
 	}
-	tmp, err := os.CreateTemp(dir, ".zervyra-vault-*.tmp")
+	tmp, err := os.CreateTemp(dir, ".zervyra-*.tmp")
 	if err != nil {
 		return err
 	}

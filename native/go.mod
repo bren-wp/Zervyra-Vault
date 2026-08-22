@@ -1,3 +1,3 @@
-module zervyra-vault-native
+module zervyra-native
 
 go 1.23

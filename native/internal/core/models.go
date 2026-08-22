@@ -2,8 +2,11 @@ package core
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"fmt"
 	"io"
+	"os"
+	"sync/atomic"
 	"time"
 )
 
@@ -88,16 +91,22 @@ type VaultLock struct {
 
 func nowRFC3339() string { return time.Now().UTC().Format(time.RFC3339Nano) }
 
+var fallbackIDCounter atomic.Uint64
+
 func RandomID() string {
 	b := make([]byte, 16)
-	if _, err := io.ReadFull(rand.Reader, b); err != nil {
-		return fmt.Sprintf("fallback-%d", time.Now().UnixNano())
+	if _, err := io.ReadFull(rand.Reader, b); err == nil {
+		return fmt.Sprintf("%x", b)
 	}
-	return fmt.Sprintf("%x", b)
+	// Entry IDs are not cryptographic secrets, but they must remain collision
+	// resistant even if the OS CSPRNG is temporarily unavailable.
+	n := fallbackIDCounter.Add(1)
+	h := sha256.Sum256([]byte(fmt.Sprintf("%d:%d:%d", time.Now().UnixNano(), os.Getpid(), n)))
+	return fmt.Sprintf("fallback-%x", h[:16])
 }
 
 func NewVault() Vault {
-	return Vault{Name: "Zervyra Vault", Entries: []Entry{}, Trash: []Entry{}, UpdatedAt: nowRFC3339()}
+	return Vault{Name: "ZERVYRA", Entries: []Entry{}, Trash: []Entry{}, UpdatedAt: nowRFC3339()}
 }
 
 func NewEntry() Entry {

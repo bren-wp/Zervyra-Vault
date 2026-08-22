@@ -106,7 +106,7 @@ func Score(p string) int {
 }
 
 func RecordPasswordChange(e *Entry, newPassword string) {
-	if e == nil || newPassword == "" || newPassword == e.Password {
+	if e == nil || newPassword == e.Password {
 		return
 	}
 	if e.Password != "" {
@@ -115,6 +115,8 @@ func RecordPasswordChange(e *Entry, newPassword string) {
 			e.PasswordHistory = append([]PasswordHistoryItem(nil), e.PasswordHistory[len(e.PasswordHistory)-20:]...)
 		}
 	}
+	// Clearing a password is a valid edit. The previous non-empty password remains
+	// in encrypted history so the user can recover from an accidental clear.
 	e.Password = newPassword
 	e.UpdatedAt = nowRFC3339()
 }
