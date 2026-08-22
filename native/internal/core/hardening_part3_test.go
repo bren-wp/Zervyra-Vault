@@ -1,6 +1,7 @@
 package core
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -90,5 +91,23 @@ func TestEncryptedEnvelopeLimitExceedsPlaintextLimit(t *testing.T) {
 	minimum := MaxVaultPlaintextSize + MaxVaultPlaintextSize/3
 	if MaxVaultFileSize <= minimum {
 		t.Fatalf("on-disk envelope limit %d does not account for Base64 expansion", MaxVaultFileSize)
+	}
+}
+
+func TestPBKDF2SHA256CompatibilityVectors(t *testing.T) {
+	tests := []struct {
+		iterations int
+		expected   string
+	}{
+		{1, "120fb6cffcf8b32c43e7225256c4f837a86548c92ccc35480805987cb70be17b"},
+		{2, "ae4d0c95af6b46d32d0adff928f06dd02a303f8ef3c251dfd6e2d85a95474c43"},
+		{4096, "c5e478d59288c841aa530db6845c4c8d962893a001ce4e11a4963873aa98134a"},
+	}
+	for _, tc := range tests {
+		got := derive("password", []byte("salt"), tc.iterations, 32)
+		if hex := fmt.Sprintf("%x", got); hex != tc.expected {
+			t.Fatalf("PBKDF2-HMAC-SHA256 mismatch at %d iterations: %s", tc.iterations, hex)
+		}
+		zeroBytes(got)
 	}
 }
