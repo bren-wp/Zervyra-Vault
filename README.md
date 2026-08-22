@@ -1,8 +1,8 @@
-# Zervyra Vault 1.1.0
+# Zervyra Vault 1.1.1
 
 **Tvoje tajne. Tvoja kontrola.**
 
-Zervyra Vault je lokalni Windows password manager napravljen kao jedna kanonska native Go aplikacija: bez obaveznog računa, bez obaveznog clouda i bez Python runtimea. Fokus 1.1 izdanja je jednostavno korištenje, stabilan tamni desktop UI i višeslojna zaštita od slučajnog gubitka e-mailova, korisničkih imena, lozinki, TOTP tajni i bilješki.
+Zervyra Vault je lokalni Windows password manager napravljen kao jedna kanonska native Go aplikacija: bez obaveznog računa, bez obaveznog clouda i bez Python runtimea. Fokus 1.1.x izdanja je jednostavno korištenje, stabilan tamni desktop UI i višeslojna zaštita od slučajnog gubitka e-mailova, korisničkih imena, lozinki, TOTP tajni i bilješki.
 
 ## Što dobivaš
 
@@ -35,6 +35,8 @@ Zervyra ne ovisi o jednoj jedinoj datoteci:
 7. svaki uređivani zapis može čuvati do **20 punih šifriranih revizija**
 8. „Novi trezor” koristi `O_EXCL` i **nikada ne prepisuje postojeći vault**
 9. ručni backup se generira iz trenutačnog in-memory vaulta i ponovno verificira nakon zapisa
+10. lock datoteka ima vlasnički token, pa stara instanca ne smije obrisati lock nove instance
+11. već verificirani novi vault ostaje sačuvan čak i ako naknadno zakaže izrada redundantne recovery kopije
 
 Ako je na računalu ostao stari `Velunox Vault` ili `Brendigo Vault` default vault, Zervyra ga prepoznaje kao legacy lokaciju kako promjena brenda ne bi izgledala kao gubitak podataka.
 
@@ -44,15 +46,15 @@ Nijedan lokalni program ne može garantirati oporavak nakon fizičkog kvara/gubi
 
 `release/` lokalnog builda sadrži:
 
-- `Zervyra-Vault-Setup-1.1.0.exe`
-- `Zervyra-Vault-Portable-1.1.0.exe`
-- `Zervyra-Vault-1.1.0.exe`
-- `Zervyra-Vault-Uninstall-1.1.0.exe`
+- `Zervyra-Vault-Setup-1.1.1.exe`
+- `Zervyra-Vault-Portable-1.1.1.exe`
+- `Zervyra-Vault-1.1.1.exe`
+- `Zervyra-Vault-Uninstall-1.1.1.exe`
 - `SHA256SUMS.txt`
 
 Setup verificira instalirane embedded binarije i brand ikonu prije završetka instalacije. Uninstaller uklanja program i shortcutove, ali **ne briše korisnički šifrirani vault**.
 
-Svaki push na `main` pokreće GitHub Actions Windows build. Nakon uspješnih testova workflow objavljuje EXE datoteke, Windows ZIP, source ZIP i FULL ZIP u **GitHub Releases** pod tagom trenutne verzije te ih dodatno čuva kao Actions artifact.
+Svaki pull request prema `main` sada mora proći gofmt provjeru, nekeshirane testove, puni core race detector, `go vet` i Windows x64 build. Push/ručni build na `main` nakon toga objavljuje verificirane EXE datoteke, Windows ZIP, source ZIP i FULL ZIP u **GitHub Releases** pod tagom trenutne verzije.
 
 ## Build i provjera
 
@@ -64,7 +66,7 @@ Na Windowsu pokreni:
 build_windows.bat
 ```
 
-Release build prvo pokreće sve testove i Windows `go vet`, a tek zatim proizvodi `.exe` artefakte i SHA-256 manifest.
+Release build prvo pokreće testove i Windows `go vet`, provjerava svaki build korak i očekuje točno četiri EXE artefakta prije izrade SHA-256 manifesta. Puni race-detector test izvodi GitHub CI na Linux runneru; lokalno ga možeš uključiti postavljanjem `ZERVYRA_RUN_RACE=1` prije build skripte.
 
 ## Kompatibilnost
 
@@ -72,10 +74,10 @@ Interni format ID `BRENDIGO_VAULT_NATIVE_V1` namjerno ostaje isti radi čitanja 
 
 ## Status sigurnosti
 
-1.1.0 ima 25 automatiziranih core/hardening testova za kriptografski round-trip, pogrešnu master lozinku, tamper rejection, malformed nonce, recovery, backup rotaciju, backup export, lockove, long-master obradu, TOTP, URL policy i record revisions. Automatizirani testovi nisu zamjena za neovisni profesionalni security audit.
+1.1.1 ima najmanje 29 automatiziranih core/hardening testova, uključujući kriptografski round-trip, pogrešnu master lozinku, tamper rejection, malformed nonce, recovery, backup rotaciju, backup export, lock ownership, očuvanje verificiranog novog vaulta, long-master obradu, TOTP, URL policy i record revisions. Automatizirani testovi nisu zamjena za neovisni profesionalni security audit.
 
-## Zaštita od gubitka podataka u 1.1.0
+## Zaštita od gubitka podataka u 1.1.1
 
-Svako spremanje prvo provjerava šifrirani recovery zapis i čuva do tri neposredne prethodne generacije (`.prev1`–`.prev3`). Uz to postoje `.recovery` i 10 rotirajućih `.bak` generacija. `LoadBest` pri otključavanju bira najnoviju valjanu šifriranu generaciju.
+Svako spremanje prvo provjerava šifrirani recovery zapis i čuva do tri neposredne prethodne generacije (`.prev1`–`.prev3`). Uz to postoje `.recovery` i 10 rotirajućih `.bak` generacija. `LoadBest` pri otključavanju bira najnoviju valjanu šifriranu generaciju. Plaintext limit i on-disk encrypted/Base64 limit sada su odvojeni kako velik, ali valjan vault ne bi postao nečitljiv nakon spremanja.
 
 Portable izdanje je samostalno: ako naziv EXE-a sadrži `Portable`, koristi vlastitu `data` mapu uz aplikaciju i ne čita installed `%LOCALAPPDATA%` stanje.
