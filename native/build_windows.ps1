@@ -38,17 +38,13 @@ if ($LASTEXITCODE -ne 0) { throw "Uninstaller build nije uspio." }
 
 Copy-Item (Join-Path $Release "Zervyra-Vault-$Version.exe") (Join-Path $Native "cmd\setup\Zervyra-Vault.exe") -Force
 Copy-Item (Join-Path $Release "Zervyra-Vault-Uninstall-$Version.exe") (Join-Path $Native "cmd\setup\Zervyra-Vault-Uninstall.exe") -Force
-$IconParts = @(Get-ChildItem (Join-Path $Native "cmd\vault\assets") -Filter "zervyra.ico.b64.part*" | Sort-Object Name)
-if ($IconParts.Count -eq 0) { throw "Zervyra ICO dijelovi nisu pronadeni." }
-$NormalizedIconParts = foreach ($part in $IconParts) {
-    $text = [IO.File]::ReadAllText($part.FullName)
-    $text = $text.TrimStart([char]0xFEFF) -replace '\s', ''
-    if ($text -notmatch '^[A-Za-z0-9+/]*={0,2}$') {
-        throw "ICO Base64 segment sadrzi neispravan znak: $($part.Name)"
-    }
-    $text
+
+$IconSource = Join-Path $Native "cmd\vault\assets\zervyra.ico.b64"
+if (-not (Test-Path -LiteralPath $IconSource)) { throw "Zervyra ICO Base64 asset nije pronaden." }
+$IconB64 = ([IO.File]::ReadAllText($IconSource)).TrimStart([char]0xFEFF) -replace '\s', ''
+if ($IconB64 -notmatch '^[A-Za-z0-9+/]*={0,2}$') {
+    throw "Zervyra ICO Base64 sadrzi neispravan znak."
 }
-$IconB64 = ($NormalizedIconParts -join "")
 if ($IconB64.Length -eq 0 -or ($IconB64.Length % 4) -ne 0) {
     throw "Zervyra ICO Base64 ima neispravnu duljinu: $($IconB64.Length)"
 }
@@ -62,6 +58,7 @@ if ($IconBytes.Length -lt 6 -or $IconBytes[0] -ne 0 -or $IconBytes[1] -ne 0 -or 
     throw "Dekodirani Zervyra asset nije valjana ICO datoteka."
 }
 [IO.File]::WriteAllBytes((Join-Path $Native "cmd\setup\Zervyra.ico"), $IconBytes)
+
 try {
     & go build -tags installer -trimpath -ldflags "-H windowsgui -s -w -X main.version=$Version" -o (Join-Path $Release "Zervyra-Vault-Setup-$Version.exe") ./cmd/setup
     if ($LASTEXITCODE -ne 0) { throw "Setup build nije uspio." }
