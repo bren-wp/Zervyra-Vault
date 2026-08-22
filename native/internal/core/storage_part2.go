@@ -40,7 +40,7 @@ func AcquireLock(vaultPath string) (*VaultLock, error) {
 	if st, err := os.Stat(lockPath); err == nil {
 		pid := readLockPID(lockPath)
 		if pid > 0 && processAlive(pid) {
-			return nil, errors.New("vault is already open in another Zervyra Vault instance")
+			return nil, errors.New("vault is already open in another ZERVYRA instance")
 		}
 		// A dead PID is a definitive stale lock. A malformed lock is removed only
 		// after the heartbeat timeout to avoid racing a just-starting instance.
@@ -57,7 +57,7 @@ func AcquireLock(vaultPath string) (*VaultLock, error) {
 	f, err := os.OpenFile(lockPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
 	if err != nil {
 		if os.IsExist(err) {
-			return nil, errors.New("vault is already open in another Zervyra Vault instance")
+			return nil, errors.New("vault is already open in another ZERVYRA instance")
 		}
 		return nil, err
 	}

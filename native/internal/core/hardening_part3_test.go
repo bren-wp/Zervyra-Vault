@@ -111,3 +111,15 @@ func TestPBKDF2SHA256CompatibilityVectors(t *testing.T) {
 		zeroBytes(got)
 	}
 }
+
+func TestRecordPasswordChangeAllowsIntentionalClear(t *testing.T) {
+	e := NewEntry()
+	e.Password = "original-secret"
+	RecordPasswordChange(&e, "")
+	if e.Password != "" {
+		t.Fatalf("expected password to be cleared, got %q", e.Password)
+	}
+	if len(e.PasswordHistory) != 1 || e.PasswordHistory[0].Password != "original-secret" {
+		t.Fatalf("expected previous password in encrypted history, got %#v", e.PasswordHistory)
+	}
+}

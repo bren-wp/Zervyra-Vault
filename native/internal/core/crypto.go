@@ -72,7 +72,7 @@ func normalizeVault(v *Vault) error {
 		return errors.New("vault contains too many entries")
 	}
 	if strings.TrimSpace(v.Name) == "" {
-		v.Name = "Zervyra Vault"
+		v.Name = "ZERVYRA"
 	}
 	if len(v.Name) > 256 {
 		return errors.New("vault name is too long")
