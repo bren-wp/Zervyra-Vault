@@ -413,6 +413,7 @@ func doOpen(create bool) {
 	releaseNewOnError := !sameLock
 
 	var newVault core.Vault
+	creationWarning := ""
 	if create {
 		if _, statErr := os.Stat(p); statErr == nil {
 			if releaseNewOnError {
@@ -423,11 +424,25 @@ func doOpen(create bool) {
 		}
 		newVault = core.NewVault()
 		if err = core.CreateNew(p, pw, newVault); err != nil {
-			if releaseNewOnError {
-				newLock.Release()
+			if core.IsRecoveryCopyWarning(err) {
+				loaded, loadErr := core.Load(p, pw)
+				if loadErr != nil {
+					if releaseNewOnError {
+						newLock.Release()
+					}
+					fail("Novi trezor je zapisan, ali ga nije moguće ponovno verificirati:\n\n" + loadErr.Error())
+					return
+				}
+				newVault = loaded
+				creationWarning = err.Error()
+				logEvent("new vault opened without redundant recovery copy: %v", err)
+			} else {
+				if releaseNewOnError {
+					newLock.Release()
+				}
+				fail(err.Error())
+				return
 			}
-			fail(err.Error())
-			return
 		}
 	} else {
 		result, loadErr := core.LoadBest(p, pw)
@@ -474,7 +489,10 @@ func doOpen(create bool) {
 	refreshList()
 	lastActivity = time.Now()
 	lastLockTouch = time.Now()
-	if strings.HasPrefix(autosaveError, "recovered:") {
+	if creationWarning != "" {
+		setStatus(fmt.Sprintf("Trezor kreiran i verificiran • recovery kopija trenutačno nije dostupna • %d zapisa", len(vault.Entries)))
+		warn("Trezor je uspješno kreiran i glavni šifrirani vault je verificiran.\n\nAutomatsku recovery kopiju trenutačno nije bilo moguće napraviti. Preporučujemo da odmah napraviš Backup kopiju na drugi disk.\n\nDetalj:\n" + creationWarning)
+	} else if strings.HasPrefix(autosaveError, "recovered:") {
 		setStatus(fmt.Sprintf("Oporavljeno i otključano • %d zapisa", len(vault.Entries)))
 		autosaveError = ""
 	} else if autosaveError != "" {
