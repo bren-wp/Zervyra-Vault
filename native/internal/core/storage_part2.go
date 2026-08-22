@@ -29,6 +29,8 @@ func AcquireLock(vaultPath string) (*VaultLock, error) {
 			return nil, errors.New("vault lock is active or too new to recover safely")
 		}
 	}
+
+	token := fmt.Sprintf("%d-%s", os.Getpid(), RandomID())
 	f, err := os.OpenFile(lockPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
 	if err != nil {
 		if os.IsExist(err) {
@@ -36,7 +38,11 @@ func AcquireLock(vaultPath string) (*VaultLock, error) {
 		}
 		return nil, err
 	}
-	_, _ = fmt.Fprintf(f, "pid=%d\ncreated=%s\n", os.Getpid(), nowRFC3339())
+	if _, err := fmt.Fprintf(f, "pid=%d\ntoken=%s\ncreated=%s\n", os.Getpid(), token, nowRFC3339()); err != nil {
+		_ = f.Close()
+		_ = os.Remove(lockPath)
+		return nil, err
+	}
 	if err := f.Sync(); err != nil {
 		_ = f.Close()
 		_ = os.Remove(lockPath)
@@ -46,11 +52,15 @@ func AcquireLock(vaultPath string) (*VaultLock, error) {
 		_ = os.Remove(lockPath)
 		return nil, err
 	}
-	return &VaultLock{path: lockPath}, nil
+	return &VaultLock{path: lockPath, token: token}, nil
+}
+
+func (l *VaultLock) ownsCurrentLock() bool {
+	return l != nil && l.path != "" && l.token != "" && readLockToken(l.path) == l.token
 }
 
 func (l *VaultLock) Touch() {
-	if l == nil || l.path == "" {
+	if !l.ownsCurrentLock() {
 		return
 	}
 	now := time.Now()
@@ -61,8 +71,11 @@ func (l *VaultLock) Release() {
 	if l == nil || l.path == "" {
 		return
 	}
-	_ = os.Remove(l.path)
+	if l.ownsCurrentLock() {
+		_ = os.Remove(l.path)
+	}
 	l.path = ""
+	l.token = ""
 }
 
 func ExportVaultBackup(dst, password string, v Vault) error {
@@ -106,9 +119,12 @@ func CreateNew(path, password string, v Vault) error {
 		}
 		return err
 	}
-	ok := false
+	mainVerified := false
 	defer func() {
-		if !ok {
+		// Once the main vault was fully written and verified it is valuable data.
+		// Never delete that verified file merely because creating the redundant
+		// recovery generation failed afterwards.
+		if !mainVerified {
 			_ = os.Remove(path)
 		}
 	}()
@@ -126,13 +142,15 @@ func CreateNew(path, password string, v Vault) error {
 	if _, err := Load(path, password); err != nil {
 		return fmt.Errorf("new vault verification failed: %w", err)
 	}
-	// Establish a second complete encrypted generation immediately.
+	mainVerified = true
+
+	// Establish a second complete encrypted generation immediately. If this
+	// redundant copy fails, the already verified main vault remains intact.
 	if err := writeAtomicFile(path+".recovery", raw); err != nil {
-		return fmt.Errorf("new vault recovery copy failed: %w", err)
+		return fmt.Errorf("vault was created and verified, but recovery copy failed; main vault was preserved: %w", err)
 	}
 	if _, err := Load(path+".recovery", password); err != nil {
-		return fmt.Errorf("new vault recovery verification failed: %w", err)
+		return fmt.Errorf("vault was created and verified, but recovery verification failed; main vault was preserved: %w", err)
 	}
-	ok = true
 	return nil
 }
