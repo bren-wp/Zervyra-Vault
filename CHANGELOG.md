@@ -1,5 +1,28 @@
 # Changelog
 
+## 1.1.1 — 2026-08-22
+
+### Stabilnost i zaštita podataka
+- lock datoteka sada ima jedinstveni ownership token; stara instanca više ne smije obrisati ili osvježavati lock koji je u međuvremenu preuzela nova instanca
+- privremene datoteke za backup/snapshot kopiranje sada koriste jedinstveni `CreateTemp` naziv umjesto fiksnog `.tmp`, što uklanja kolizije sa zaostalim temp datotekama
+- `CreateNew` više ne briše već uspješno zapisan i verificiran glavni vault ako naknadno ne uspije stvaranje redundantne `.recovery` kopije
+- odvojeni su limit plaintext vaulta i limit šifriranog JSON/Base64 envelopea; valjan veliki vault više ne može postati nečitljiv samo zbog Base64 ekspanzije
+- dodani regresijski testovi za lock ownership, očuvanje verificiranog novog vaulta i veličinske granice envelopea
+
+### Windows Setup i Uninstall
+- ispravljeno PowerShell escapiranje svih shortcut putanja, uključujući Windows profile koji u putanji sadrže apostrof
+- Setup sada prijavljuje djelomični problem Windows integracije umjesto da ga potpuno ignorira
+- uklonjena je konkatenacija install putanje u `cmd.exe` cleanup naredbu; uninstaller sada koristi PowerShell `-LiteralPath` s pravilnim escapiranjem
+- build skripta eksplicitno provjerava rezultat svakog Windows build koraka, broj konačnih EXE artefakata i prisutnost ICO source dijelova
+- privremeni installer asseti čiste se kroz `finally` i nakon neuspješnog Setup builda
+
+### CI i održavanje
+- GitHub Actions sada obavezno radi i na pull requestovima prema `main`
+- dodana gofmt provjera, nekeshirani testovi, puni core race-detector test i `go vet`
+- Windows build ostaje zaseban verificirani job, a release publish zaseban job s `contents: write` ovlasti samo kad je stvarno potreban
+- PR buildovi koriste read-only repository permission i ne mogu objaviti release
+- dodani concurrency/cancel mehanizmi kako zastarjeli buildovi ne bi nepotrebno trošili runner vrijeme
+
 ## 1.1.0 — 2026-08-19
 
 ### Stabilnost i jednostavniji prvi start
