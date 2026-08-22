@@ -2,15 +2,61 @@ name: Zervyra Vault Windows Release
 
 on:
   workflow_dispatch:
+  pull_request:
+    branches:
+      - main
   push:
     branches:
       - main
 
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: zervyra-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
+  core-quality:
+    name: Core quality and race tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: native
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.x'
+          cache-dependency-path: native/go.mod
+
+      - name: Require gofmt-clean source
+        shell: bash
+        run: |
+          set -euo pipefail
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then
+            echo "Go source nije gofmt-clean:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: Run all tests without cache
+        run: go test -count=1 ./...
+
+      - name: Run race detector on core
+        run: go test -race -count=1 ./internal/core
+
+      - name: Vet portable core
+        run: go vet ./...
+
   build-windows:
+    name: Windows x64 build
+    needs: core-quality
     runs-on: windows-2025
     timeout-minutes: 30
     steps:
@@ -25,7 +71,7 @@ jobs:
           go-version: '1.23.x'
           cache-dependency-path: native/go.mod
 
-      - name: Test, vet and build
+      - name: Test, vet and build Windows artifacts
         shell: powershell
         run: ./native/build_windows.ps1
 
@@ -34,11 +80,15 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $expected = Get-Content release/SHA256SUMS.txt
+          if ($expected.Count -ne 4) { throw "Ocekivana su 4 SHA-256 zapisa." }
           foreach ($line in $expected) {
-            if ($line -match '^([0-9a-f]{64})  (.+)$') {
-              $actual = (Get-FileHash (Join-Path 'release' $Matches[2]) -Algorithm SHA256).Hash.ToLowerInvariant()
-              if ($actual -ne $Matches[1]) { throw "Checksum mismatch: $($Matches[2])" }
-            }
+            if ($line -notmatch '^([0-9a-f]{64})  (.+\.exe)$') { throw "Neispravan SHA256SUMS redak: $line" }
+            $path = Join-Path 'release' $Matches[2]
+            if (-not (Test-Path -LiteralPath $path)) { throw "Nedostaje artefakt: $path" }
+            $bytes = [IO.File]::ReadAllBytes($path)
+            if ($bytes.Length -lt 2 -or $bytes[0] -ne 0x4d -or $bytes[1] -ne 0x5a) { throw "Artefakt nije Windows PE/MZ: $path" }
+            $actual = (Get-FileHash $path -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($actual -ne $Matches[1]) { throw "Checksum mismatch: $($Matches[2])" }
           }
 
       - name: Package distributions
@@ -57,7 +107,7 @@ jobs:
           Remove-Item -Recurse -Force dist/full
           Get-FileHash dist/*.zip -Algorithm SHA256 | ForEach-Object { "$($_.Hash.ToLowerInvariant())  $([IO.Path]::GetFileName($_.Path))" } | Set-Content -Encoding ASCII dist/SHA256SUMS.txt
 
-      - name: Upload GitHub Actions artifacts
+      - name: Upload verified build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: Zervyra-Vault-${{ github.sha }}
@@ -67,18 +117,44 @@ jobs:
           if-no-files-found: error
           compression-level: 0
 
-      - name: Publish GitHub Release
-        if: github.ref == 'refs/heads/main'
-        shell: powershell
+  publish-release:
+    name: Publish GitHub Release
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: build-windows
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout version metadata
+        uses: actions/checkout@v4
+
+      - name: Download verified Windows artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: Zervyra-Vault-${{ github.sha }}
+          path: artifacts
+
+      - name: Publish or update release
+        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $ErrorActionPreference = 'Stop'
-          $version = (Get-Content VERSION -Raw).Trim()
-          $tag = "v$version"
-          gh release view $tag --repo $env:GITHUB_REPOSITORY *> $null
-          if ($LASTEXITCODE -eq 0) {
-            gh release upload $tag release/* dist/* --clobber --repo $env:GITHUB_REPOSITORY
-          } else {
-            gh release create $tag release/* dist/* --target $env:GITHUB_SHA --title "Zervyra Vault $version" --notes "Automatski verificirani Windows x64 release za Zervyra Vault $version. Build uključuje testove, race-detector smoke test, go vet i SHA-256 provjeru artefakata." --repo $env:GITHUB_REPOSITORY
-          }
+          set -euo pipefail
+          version="$(tr -d '\r\n' < VERSION)"
+          tag="v$version"
+          shopt -s nullglob
+          files=(artifacts/release/* artifacts/dist/*)
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "Nema verificiranih release artefakata."
+            exit 1
+          fi
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$tag" "${files[@]}" --clobber --repo "$GITHUB_REPOSITORY"
+          else
+            gh release create "$tag" "${files[@]}" \
+              --target "$GITHUB_SHA" \
+              --title "Zervyra Vault $version" \
+              --notes "Automatski verificirani Windows x64 release za Zervyra Vault $version. CI uključuje gofmt provjeru, nekeshirane testove, race detector, go vet, Windows x64 build, PE validaciju i SHA-256 provjeru artefakata." \
+              --repo "$GITHUB_REPOSITORY"
+          fi
