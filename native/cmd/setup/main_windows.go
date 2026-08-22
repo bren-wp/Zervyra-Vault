@@ -24,7 +24,7 @@ var uninstaller []byte
 var icon []byte
 
 var (
-	version     = "1.1.0-dev"
+	version     = "1.1.1-dev"
 	user32      = syscall.NewLazyDLL("user32.dll")
 	kernel32    = syscall.NewLazyDLL("kernel32.dll")
 	pMessageBox = user32.NewProc("MessageBoxW")
@@ -34,6 +34,7 @@ var (
 const (
 	MB_ICONINFORMATION = 0x40
 	MB_ICONERROR       = 0x10
+	MB_ICONWARNING     = 0x30
 )
 
 func w(s string) *uint16 { return syscall.StringToUTF16Ptr(s) }
@@ -98,8 +99,8 @@ func hidden(name string, args ...string) error {
 	return c.Run()
 }
 
-func regAdd(key, name, typ, value string) {
-	_ = hidden("reg.exe", "add", key, "/v", name, "/t", typ, "/d", value, "/f")
+func regAdd(key, name, typ, value string) error {
+	return hidden("reg.exe", "add", key, "/v", name, "/t", typ, "/d", value, "/f")
 }
 
 func main() {
@@ -138,23 +139,36 @@ func main() {
 		return
 	}
 
+	// Every path inserted into PowerShell is single-quote escaped. Windows user
+	// profile paths can legally contain apostrophes, and an unescaped path used to
+	// make shortcut creation fail even though the application itself was installed.
 	ps := `$ErrorActionPreference='Stop';$ws=New-Object -ComObject WScript.Shell;` +
 		`$desktop=[Environment]::GetFolderPath('Desktop');$s=$ws.CreateShortcut([IO.Path]::Combine($desktop,'Zervyra Vault.lnk'));` +
 		`$s.TargetPath='` + psQuote(exe) + `';$s.WorkingDirectory='` + psQuote(dir) + `';$s.IconLocation='` + psQuote(iconPath) + `';$s.Save();` +
 		`$sm=[IO.Path]::Combine($env:APPDATA,'Microsoft\Windows\Start Menu\Programs','Zervyra Vault.lnk');` +
-		`$s2=$ws.CreateShortcut($sm);$s2.TargetPath='` + exe + `';$s2.WorkingDirectory='` + dir + `';$s2.IconLocation='` + iconPath + `';$s2.Save()`
-	_ = hidden("powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", ps)
+		`$s2=$ws.CreateShortcut($sm);$s2.TargetPath='` + psQuote(exe) + `';$s2.WorkingDirectory='` + psQuote(dir) + `';$s2.IconLocation='` + psQuote(iconPath) + `';$s2.Save()`
+	shortcutErr := hidden("powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", ps)
 
 	key := `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\Zervyra Vault`
-	regAdd(key, "DisplayName", "REG_SZ", "Zervyra Vault")
-	regAdd(key, "DisplayVersion", "REG_SZ", version)
-	regAdd(key, "Publisher", "REG_SZ", "Brendigo LTD.")
-	regAdd(key, "InstallLocation", "REG_SZ", dir)
-	regAdd(key, "DisplayIcon", "REG_SZ", iconPath)
-	regAdd(key, "UninstallString", "REG_SZ", `"`+uninst+`"`)
-	regAdd(key, "NoModify", "REG_DWORD", "1")
-	regAdd(key, "NoRepair", "REG_DWORD", "1")
+	registryErr := regAdd(key, "DisplayName", "REG_SZ", "Zervyra Vault")
+	for _, item := range [][3]string{
+		{"DisplayVersion", "REG_SZ", version},
+		{"Publisher", "REG_SZ", "Brendigo LTD."},
+		{"InstallLocation", "REG_SZ", dir},
+		{"DisplayIcon", "REG_SZ", iconPath},
+		{"UninstallString", "REG_SZ", `"` + uninst + `"`},
+		{"NoModify", "REG_DWORD", "1"},
+		{"NoRepair", "REG_DWORD", "1"},
+	} {
+		if err := regAdd(key, item[0], item[1], item[2]); err != nil && registryErr == nil {
+			registryErr = err
+		}
+	}
 
-	msg(fmt.Sprintf("Zervyra Vault %s je uspješno instaliran.\n\nLokacija:\n%s", version, exe), MB_ICONINFORMATION)
+	if shortcutErr != nil || registryErr != nil {
+		msg(fmt.Sprintf("Zervyra Vault %s je instaliran i provjeren, ali Windows integracija nije potpuno završena.\n\nAplikaciju možeš pokrenuti iz:\n%s", version, exe), MB_ICONWARNING)
+	} else {
+		msg(fmt.Sprintf("Zervyra Vault %s je uspješno instaliran.\n\nLokacija:\n%s", version, exe), MB_ICONINFORMATION)
+	}
 	_ = exec.Command(exe).Start()
 }

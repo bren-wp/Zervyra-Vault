@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"unsafe"
 )
@@ -28,6 +29,8 @@ func msg(s string, flags uintptr) int {
 	r, _, _ := pMessageBox.Call(0, uintptr(unsafe.Pointer(w(s))), uintptr(unsafe.Pointer(w("Zervyra Vault Uninstall"))), flags)
 	return int(r)
 }
+
+func psQuote(s string) string { return strings.ReplaceAll(s, "'", "''") }
 
 func main() {
 	if msg("Deinstalirati Zervyra Vault?\n\nTvoj šifrirani vault i korisnički podaci neće biti obrisani.", MB_YESNO|MB_ICONWARNING) != IDYES {
@@ -55,12 +58,12 @@ func main() {
 
 	msg("Zervyra Vault je deinstaliran.\n\nŠifrirani vault podaci su sačuvani u LOCALAPPDATA\\Zervyra Vault.", MB_ICONINFORMATION)
 
-	// A running executable cannot delete itself. Schedule directory removal after this process exits.
-	script := `ping 127.0.0.1 -n 3 >nul & rmdir /S /Q "` + installDir + `"`
-	c = exec.Command("cmd.exe", "/C", script)
+	// A running executable cannot delete itself. Use PowerShell -LiteralPath with
+	// single-quote escaping instead of concatenating the path into cmd.exe syntax;
+	// LOCALAPPDATA may legally contain shell metacharacters or apostrophes.
+	cleanup := `Start-Sleep -Seconds 2; Remove-Item -LiteralPath '` + psQuote(installDir) + `' -Recurse -Force -ErrorAction SilentlyContinue`
+	c = exec.Command("powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden", "-Command", cleanup)
 	c.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
-	// Do not keep the install directory as cmd.exe's working directory; Windows
-	// otherwise may refuse to remove it after this uninstaller exits.
 	c.Dir = os.TempDir()
 	_ = c.Start()
 }

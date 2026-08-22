@@ -9,10 +9,10 @@ import (
 
 const (
 	// Format intentionally stays stable so Brendigo/Velunox native V1 vaults remain readable.
-	Format                   = "BRENDIGO_VAULT_NATIVE_V1"
-	KDFIterations            = 600000
-	MinKDFIterations         = 100000
-	MaxKDFIterations         = 2000000
+	Format           = "BRENDIGO_VAULT_NATIVE_V1"
+	KDFIterations    = 600000
+	MinKDFIterations = 100000
+	MaxKDFIterations = 2000000
 	// Plaintext and on-disk envelope have different limits because Base64 expands
 	// encrypted data by roughly one third. Keeping them separate prevents a valid
 	// near-limit vault from being written successfully and then rejected on reopen.

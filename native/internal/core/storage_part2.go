@@ -9,6 +9,29 @@ import (
 	"time"
 )
 
+type RecoveryCopyWarning struct {
+	Err error
+}
+
+func (e *RecoveryCopyWarning) Error() string {
+	if e == nil || e.Err == nil {
+		return "vault was created and verified, but the recovery copy is unavailable"
+	}
+	return "vault was created and verified, but the recovery copy is unavailable: " + e.Err.Error()
+}
+
+func (e *RecoveryCopyWarning) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.Err
+}
+
+func IsRecoveryCopyWarning(err error) bool {
+	var warning *RecoveryCopyWarning
+	return errors.As(err, &warning)
+}
+
 func AcquireLock(vaultPath string) (*VaultLock, error) {
 	lockPath := filepath.Clean(vaultPath) + ".lock"
 	if err := os.MkdirAll(filepath.Dir(lockPath), 0700); err != nil {
@@ -145,12 +168,13 @@ func CreateNew(path, password string, v Vault) error {
 	mainVerified = true
 
 	// Establish a second complete encrypted generation immediately. If this
-	// redundant copy fails, the already verified main vault remains intact.
+	// redundant copy fails, the already verified main vault remains intact and a
+	// typed warning lets the UI continue opening that valid primary generation.
 	if err := writeAtomicFile(path+".recovery", raw); err != nil {
-		return fmt.Errorf("vault was created and verified, but recovery copy failed; main vault was preserved: %w", err)
+		return &RecoveryCopyWarning{Err: fmt.Errorf("recovery copy write failed: %w", err)}
 	}
 	if _, err := Load(path+".recovery", password); err != nil {
-		return fmt.Errorf("vault was created and verified, but recovery verification failed; main vault was preserved: %w", err)
+		return &RecoveryCopyWarning{Err: fmt.Errorf("recovery copy verification failed: %w", err)}
 	}
 	return nil
 }

@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"unicode"
 	"unsafe"
 )
 
@@ -34,14 +35,30 @@ var embeddedIconBase64Part07 string
 
 var bigIcon, smallIcon uintptr
 
+func normalizeEmbeddedBase64(s string) string {
+	return strings.Map(func(r rune) rune {
+		if r == '\uFEFF' || unicode.IsSpace(r) {
+			return -1
+		}
+		return r
+	}, s)
+}
+
 func installWindowIcon(h uintptr) {
-	embeddedIconBase64 := embeddedIconBase64Part01 + embeddedIconBase64Part02 + embeddedIconBase64Part03 + embeddedIconBase64Part04 + embeddedIconBase64Part05 + embeddedIconBase64Part06 + embeddedIconBase64Part07
+	embeddedIconBase64 := normalizeEmbeddedBase64(
+		embeddedIconBase64Part01 + embeddedIconBase64Part02 + embeddedIconBase64Part03 +
+			embeddedIconBase64Part04 + embeddedIconBase64Part05 + embeddedIconBase64Part06 + embeddedIconBase64Part07,
+	)
 	if h == 0 || len(embeddedIconBase64) == 0 {
 		return
 	}
-	embeddedIcon, err := base64.StdEncoding.DecodeString(strings.TrimSpace(embeddedIconBase64))
-	if err != nil || len(embeddedIcon) == 0 {
+	embeddedIcon, err := base64.StdEncoding.DecodeString(embeddedIconBase64)
+	if err != nil || len(embeddedIcon) < 6 {
 		logEvent("embedded icon decode failed: %v", err)
+		return
+	}
+	if embeddedIcon[0] != 0 || embeddedIcon[1] != 0 || embeddedIcon[2] != 1 || embeddedIcon[3] != 0 {
+		logEvent("embedded icon has invalid ICO header")
 		return
 	}
 	dir := filepath.Join(dataDir(), "cache")
