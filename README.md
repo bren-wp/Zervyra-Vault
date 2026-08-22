@@ -10,6 +10,7 @@ Zervyra Vault je lokalni Windows password manager napravljen kao jedna kanonska 
 - lokalni šifrirani `.bvault`
 - AES-256-GCM autentificiranu enkripciju
 - PBKDF2-HMAC-SHA256 s 600.000 iteracija, nasumičnim saltom po zapisu vaulta i zaštitom od modificiranog ciphertexta
+- optimizirani PBKDF2 bez promjene rezultata ili sigurnosnog troška: HMAC stanje i fiksni bufferi ponovno se koriste kako bi autosave imao manje alokacija i kraće UI zastajkivanje
 - zasebna polja za naziv, korisničko ime, e-mail, lozinku, URL, 2FA/TOTP, tagove i bilješke
 - favorite, pretragu i koš
 - generator jakih lozinki
@@ -36,7 +37,7 @@ Zervyra ne ovisi o jednoj jedinoj datoteci:
 8. „Novi trezor” koristi `O_EXCL` i **nikada ne prepisuje postojeći vault**
 9. ručni backup se generira iz trenutačnog in-memory vaulta i ponovno verificira nakon zapisa
 10. lock datoteka ima vlasnički token, pa stara instanca ne smije obrisati lock nove instance
-11. već verificirani novi vault ostaje sačuvan čak i ako naknadno zakaže izrada redundantne recovery kopije
+11. već verificirani novi vault ostaje sačuvan čak i ako naknadno zakaže izrada redundantne recovery kopije; aplikacija ga može nastaviti koristiti uz jasno upozorenje korisniku
 
 Ako je na računalu ostao stari `Velunox Vault` ili `Brendigo Vault` default vault, Zervyra ga prepoznaje kao legacy lokaciju kako promjena brenda ne bi izgledala kao gubitak podataka.
 
@@ -74,7 +75,7 @@ Interni format ID `BRENDIGO_VAULT_NATIVE_V1` namjerno ostaje isti radi čitanja 
 
 ## Status sigurnosti
 
-1.1.1 ima najmanje 29 automatiziranih core/hardening testova, uključujući kriptografski round-trip, pogrešnu master lozinku, tamper rejection, malformed nonce, recovery, backup rotaciju, backup export, lock ownership, očuvanje verificiranog novog vaulta, long-master obradu, TOTP, URL policy i record revisions. Automatizirani testovi nisu zamjena za neovisni profesionalni security audit.
+1.1.1 ima najmanje 30 automatiziranih core/hardening testova, uključujući kriptografski round-trip, PBKDF2-HMAC-SHA256 kompatibilnosne vektore, pogrešnu master lozinku, tamper rejection, malformed nonce, recovery, backup rotaciju, backup export, lock ownership, očuvanje verificiranog novog vaulta, long-master obradu, TOTP, URL policy i record revisions. Automatizirani testovi nisu zamjena za neovisni profesionalni security audit.
 
 ## Zaštita od gubitka podataka u 1.1.1
 
