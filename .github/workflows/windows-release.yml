@@ -105,7 +105,7 @@ jobs:
           Copy-Item release/SHA256SUMS.txt dist/full/
           Compress-Archive -Path dist/full/* -DestinationPath "dist/Zervyra-Vault-$version-FULL.zip" -Force
           Remove-Item -Recurse -Force dist/full
-          Get-FileHash dist/*.zip -Algorithm SHA256 | ForEach-Object { "$($_.Hash.ToLowerInvariant())  $([IO.Path]::GetFileName($_.Path))" } | Set-Content -Encoding ASCII dist/SHA256SUMS.txt
+          Get-FileHash dist/*.zip -Algorithm SHA256 | ForEach-Object { "$($_.Hash.ToLowerInvariant())  $([IO.Path]::GetFileName($_.Path))" } | Set-Content -Encoding ASCII dist/SHA256SUMS-ZIPS.txt
 
       - name: Upload verified build artifacts
         uses: actions/upload-artifact@v4
